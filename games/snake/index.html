@@ -115,7 +115,7 @@ footer{margin-top:26px;text-align:center;font-size:12px;color:#9dbccb}
     <button class="down" data-d="0,1">▼</button>
     <button class="right" data-d="1,0">▶</button>
   </div>
-  <div id="hint">方向键 / 滑动屏幕 / 点击方向钮控制小蛇，吃掉TSG泡泡变长加分，撞墙或撞自己就结束！</div>
+  <div id="hint">方向键 / WASD / 滑动屏幕 / 点击方向钮控制小蛇，吃掉TSG泡泡变长加分，撞墙或撞自己就结束！</div>
   <footer>TSG游戏 · 合集</footer>
 </div>
 <script src="../../assets/js/tsg-photos.js"></script>
@@ -260,10 +260,12 @@ function draw(){
 
 // 键盘
 window.addEventListener('keydown',function(e){
-  if(e.key==='ArrowUp'){setDir(-1,0);e.preventDefault();}
-  else if(e.key==='ArrowDown'){setDir(1,0);e.preventDefault();}
-  else if(e.key==='ArrowLeft'){setDir(0,-1);e.preventDefault();}
-  else if(e.key==='ArrowRight'){setDir(0,1);e.preventDefault();}
+  if(e.target&&/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName))return;
+  var k=String(e.key||'').toLowerCase();
+  if(k==='arrowup'||k==='w'){setDir(-1,0);e.preventDefault();}
+  else if(k==='arrowdown'||k==='s'){setDir(1,0);e.preventDefault();}
+  else if(k==='arrowleft'||k==='a'){setDir(0,-1);e.preventDefault();}
+  else if(k==='arrowright'||k==='d'){setDir(0,1);e.preventDefault();}
 });
 // 方向钮
 document.querySelectorAll('#dpad button').forEach(function(b){
