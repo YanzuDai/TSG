@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f4efe5">
+  <title>TSG 2048</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="../../assets/css/game-ui.css">
+</head>
+<body class="tsg-game-page">
+  <main class="app-shell">
+    <header class="topbar">
+      <a class="back-link" href="../../index.html" aria-label="返回游戏大厅">← 返回游戏大厅</a>
+      <button id="restart-button" class="small-button" type="button">重新开始</button>
+    </header>
+
+    <section class="hero" aria-labelledby="game-title">
+      <div>
+        <p class="eyebrow">TSG GAME UNIVERSE · #02</p>
+        <h1 id="game-title">TSG 2048</h1>
+        <p class="subtitle">滑一下，让 TSG 不断进化。合成 2048 只是开始。</p>
+      </div>
+      <div class="score-panel" aria-label="分数">
+        <div class="score-box"><span>当前分数</span><strong id="score">0</strong></div>
+        <div class="score-box"><span>最高分</span><strong id="best-score">0</strong></div>
+      </div>
+    </section>
+
+    <section class="game-area">
+      <div id="tier-toast" class="tier-toast" role="status" aria-live="polite"></div>
+      <div id="board" class="board" aria-label="TSG 2048 棋盘"></div>
+
+      <div class="controls" aria-label="方向控制">
+        <button type="button" class="direction direction-up" data-direction="up" aria-label="向上">↑</button>
+        <button type="button" class="direction direction-left" data-direction="left" aria-label="向左">←</button>
+        <button type="button" class="direction direction-down" data-direction="down" aria-label="向下">↓</button>
+        <button type="button" class="direction direction-right" data-direction="right" aria-label="向右">→</button>
+      </div>
+      <p class="hint">电脑：方向键 / WASD　·　手机：在棋盘上滑动或点方向按钮</p>
+    </section>
+  </main>
+
+  <div id="victory-overlay" class="overlay" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="victory-title">
+      <div class="modal-emoji">🎉</div>
+      <h2 id="victory-title">成功合成 2048 TSG！</h2>
+      <p>经典目标已完成，但 TSG 还能继续进化到 4096、8192，甚至 16384。</p>
+      <div class="modal-actions">
+        <button id="continue-button" type="button" class="primary-button">继续游戏</button>
+        <button id="victory-restart-button" type="button" class="secondary-button">重新开始</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="gameover-overlay" class="overlay" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="gameover-title">
+      <div class="modal-emoji">🫠</div>
+      <h2 id="gameover-title">TSG 挤不动了</h2>
+      <p>棋盘已经没有可移动的位置。再来一局，把 TSG 进化得更远。</p>
+      <div class="modal-actions">
+        <button id="gameover-restart-button" type="button" class="primary-button">重新开始</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="engine.js"></script>
+  <script src="input.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>

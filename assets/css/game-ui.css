@@ -1,0 +1,308 @@
+/* Shared polish layer for the 12 offline TSG games.
+   It intentionally sits after each game's native styles so layout fixes stay consistent
+   without replacing the games' individual palettes or mechanics. */
+.tsg-game-page {
+  --ui-surface: rgba(255, 255, 255, .90);
+  --ui-surface-soft: rgba(255, 255, 255, .70);
+  --ui-border: rgba(255, 255, 255, .76);
+  --ui-shadow: 0 10px 28px rgba(50, 74, 88, .12);
+  --ui-shadow-strong: 0 16px 42px rgba(50, 74, 88, .16);
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+.tsg-game-page::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: -1;
+  background:
+    radial-gradient(circle at 10% 14%, rgba(255,255,255,.38), transparent 26rem),
+    radial-gradient(circle at 88% 82%, rgba(255,255,255,.24), transparent 24rem);
+}
+
+.tsg-game-page .wrap,
+.tsg-game-page #app,
+.tsg-game-page .app-shell {
+  position: relative;
+}
+
+.tsg-game-page h1,
+.tsg-game-page h2,
+.tsg-game-page h3,
+.tsg-game-page p,
+.tsg-game-page .label,
+.tsg-game-page .val,
+.tsg-game-page .status,
+.tsg-game-page .tip,
+.tsg-game-page #hint {
+  overflow-wrap: anywhere;
+}
+
+.tsg-game-page button,
+.tsg-game-page select,
+.tsg-game-page a {
+  font-family: inherit;
+  max-width: 100%;
+}
+
+/* The source games used a 38px circular button while putting the full return label in it.
+   Give the navigation label enough room and keep it visually compact instead of clipping. */
+.tsg-game-page .wrap > header .back {
+  width: auto !important;
+  height: auto !important;
+  min-height: 40px;
+  padding: 0 13px !important;
+  border-radius: 999px !important;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  font-size: 13px !important;
+  font-weight: 800;
+  line-height: 1.15;
+  white-space: nowrap;
+  letter-spacing: 0;
+  box-shadow: var(--ui-shadow) !important;
+}
+
+.tsg-game-page .wrap > header {
+  min-width: 0;
+}
+
+.tsg-game-page .wrap > header h1 {
+  min-width: 0;
+  font-size: clamp(20px, 5.7vw, 28px);
+  line-height: 1.16;
+  letter-spacing: .02em;
+}
+
+.tsg-game-page .toolbar,
+.tsg-game-page .opts {
+  min-width: 0;
+}
+
+.tsg-game-page .toolbar .stat,
+.tsg-game-page .panel,
+.tsg-game-page .status {
+  min-width: 0;
+  border: 1px solid var(--ui-border);
+  box-shadow: var(--ui-shadow);
+}
+
+.tsg-game-page .toolbar .stat {
+  padding-top: 9px;
+  padding-bottom: 9px;
+}
+
+.tsg-game-page .stat .label,
+.tsg-game-page .panel .label,
+.tsg-game-page .score-box span,
+.tsg-game-page .hud-card span {
+  line-height: 1.35;
+}
+
+.tsg-game-page .stat .val,
+.tsg-game-page .panel .val,
+.tsg-game-page .score-box strong,
+.tsg-game-page .hud-card strong {
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+}
+
+.tsg-game-page button.btn,
+.tsg-game-page select.btn,
+.tsg-game-page .small-button,
+.tsg-game-page .ghost-button,
+.tsg-game-page .primary-button,
+.tsg-game-page .secondary-button {
+  min-height: 42px;
+  line-height: 1.25;
+  border-radius: 14px;
+}
+
+.tsg-game-page button.btn,
+.tsg-game-page .small-button,
+.tsg-game-page .ghost-button,
+.tsg-game-page .primary-button,
+.tsg-game-page .secondary-button {
+  transition: transform .14s ease, box-shadow .14s ease, filter .14s ease;
+}
+
+@media (hover:hover) {
+  .tsg-game-page button.btn:hover,
+  .tsg-game-page .small-button:hover,
+  .tsg-game-page .ghost-button:hover,
+  .tsg-game-page .primary-button:hover,
+  .tsg-game-page .secondary-button:hover {
+    transform: translateY(-1px);
+    filter: brightness(1.025);
+  }
+}
+
+.tsg-game-page .opts {
+  flex-wrap: wrap;
+}
+
+.tsg-game-page .opts > .btn {
+  min-width: min(150px, 100%);
+  line-height: 1.3;
+}
+
+.tsg-game-page #overlay h2,
+.tsg-game-page #overlay p,
+.tsg-game-page .modal h2,
+.tsg-game-page .modal p,
+.tsg-game-page .modal-card h2,
+.tsg-game-page .modal-card p {
+  max-width: min(92%, 30rem);
+  margin-left: auto;
+  margin-right: auto;
+  text-align: center;
+}
+
+.tsg-game-page #overlay p,
+.tsg-game-page .modal p,
+.tsg-game-page .modal-card p,
+.tsg-game-page #hint,
+.tsg-game-page .tip {
+  line-height: 1.7;
+}
+
+/* Synthesis gets a normal-flow nav so the title is no longer covered by a fixed pill. */
+.tsg-game-page .game-nav {
+  display: flex;
+  margin: 0 2px 12px;
+}
+
+.tsg-game-page .game-nav .lobby-back,
+.tsg-game-page .back-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 38px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: var(--ui-surface-soft);
+  color: var(--ink, #4b4037);
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 850;
+  line-height: 1.15;
+  white-space: nowrap;
+  box-shadow: 0 5px 18px rgba(60,55,48,.10), inset 0 0 0 1px var(--ui-border);
+  backdrop-filter: blur(10px);
+}
+
+/* 2048 and synthesis: make information panels breathe without stealing board space. */
+.tsg-game-page .score-box,
+.tsg-game-page .hud-card {
+  min-width: 0;
+}
+
+.tsg-game-page .modal,
+.tsg-game-page .modal-card {
+  overflow: hidden;
+}
+
+@media (max-width: 430px) {
+  .tsg-game-page .wrap {
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+  }
+
+  .tsg-game-page .wrap > header {
+    align-items: center !important;
+    gap: 8px !important;
+    margin-bottom: 16px !important;
+  }
+
+  .tsg-game-page .wrap > header .back {
+    min-height: 38px;
+    padding: 0 11px !important;
+    font-size: 12px !important;
+  }
+
+  .tsg-game-page .wrap > header h1 {
+    font-size: clamp(19px, 5.2vw, 23px);
+  }
+
+  .tsg-game-page .toolbar {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+    align-items: stretch;
+  }
+
+  .tsg-game-page .toolbar > .stat {
+    flex: 1 1 88px !important;
+    padding: 8px 7px !important;
+  }
+
+  .tsg-game-page .toolbar > button.btn,
+  .tsg-game-page .toolbar > select.btn {
+    flex: 1 1 150px !important;
+    width: auto !important;
+    min-width: 0 !important;
+    padding-left: 8px !important;
+    padding-right: 8px !important;
+    font-size: 13px !important;
+  }
+
+  .tsg-game-page .opts {
+    gap: 8px !important;
+  }
+
+  .tsg-game-page .opts > .btn {
+    flex: 1 1 145px !important;
+    min-width: 0 !important;
+    padding-left: 8px !important;
+    padding-right: 8px !important;
+    font-size: 13px !important;
+  }
+
+  .tsg-game-page #overlay {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .tsg-game-page #overlay h2,
+  .tsg-game-page .modal h2,
+  .tsg-game-page .modal-card h2 {
+    font-size: clamp(22px, 7vw, 28px) !important;
+    line-height: 1.2;
+  }
+
+  .tsg-game-page #overlay p,
+  .tsg-game-page .modal p,
+  .tsg-game-page .modal-card p {
+    font-size: 13px !important;
+  }
+
+  .tsg-game-page .game-nav {
+    margin-bottom: 10px;
+  }
+
+  .tsg-game-page .topbar {
+    min-width: 0;
+  }
+
+  .tsg-game-page .topbar > * {
+    min-width: 0;
+  }
+
+  .tsg-game-page .hint,
+  .tsg-game-page #hint,
+  .tsg-game-page .tip {
+    font-size: 12px !important;
+    line-height: 1.65 !important;
+  }
+}
+
+@media (min-width: 900px) {
+  .tsg-game-page .wrap > header .back,
+  .tsg-game-page .game-nav .lobby-back,
+  .tsg-game-page .back-link {
+    font-size: 14px;
+  }
+}

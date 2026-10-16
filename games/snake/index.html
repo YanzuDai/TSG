@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>TSG 贪吃蛇</title>
+<style>
+:root{
+  --bg:#e9f6fc; --ink:#2c4a5a; --accent:#36b3e3; --accent-dark:#238ab3;
+  --bubble:#cdeaf7; --radius:14px; --board:#a8cce0;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{
+  font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+  background:linear-gradient(180deg,#d8f0fb 0%,var(--bg) 40%,#f4fbff 100%);
+  min-height:100vh;color:var(--ink);
+}
+.wrap{max-width:480px;margin:0 auto;padding:16px 14px 40px}
+header{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.back{
+  width:38px;height:38px;border:none;border-radius:50%;background:#fff;color:var(--accent-dark);
+  font-size:18px;cursor:pointer;box-shadow:0 2px 8px rgba(44,116,150,.15);flex-shrink:0;
+}
+h1{font-size:22px;font-weight:800;letter-spacing:1px}
+h1 span{color:var(--accent-dark)}
+.toolbar{display:flex;gap:10px;margin-bottom:14px}
+.stat{
+  flex:1;background:#fff;border-radius:var(--radius);padding:10px 14px;
+  box-shadow:0 2px 10px rgba(44,116,150,.1);text-align:center;
+}
+.stat .label{font-size:12px;color:#7ba3b5}
+.stat .val{font-size:22px;font-weight:800;color:var(--accent-dark)}
+button.btn{
+  border:none;border-radius:var(--radius);background:var(--accent);color:#fff;
+  font-size:15px;font-weight:700;padding:10px 18px;cursor:pointer;
+  box-shadow:0 3px 10px rgba(54,179,227,.35);
+}
+button.btn:active{background:var(--accent-dark)}
+button.btn.ghost{background:#fff;color:var(--accent-dark);box-shadow:0 2px 8px rgba(44,116,150,.15)}
+select.btn{
+  border:none;border-radius:var(--radius);font-size:15px;font-weight:700;padding:10px 8px;cursor:pointer;
+  font-family:inherit;appearance:none;-webkit-appearance:none;text-align:center;
+  background:#fff;color:var(--accent-dark);box-shadow:0 2px 8px rgba(44,116,150,.15);
+}
+#stage{
+  position:relative;width:100%;
+  background:var(--board);border-radius:18px;
+  box-shadow:0 6px 20px rgba(44,116,150,.22);
+  touch-action:none;
+}
+#cv{width:100%;display:block;border-radius:18px}
+#hint{
+  text-align:center;font-size:13px;color:#7ba3b5;margin-top:12px;line-height:1.7;
+}
+#dpad{
+  display:grid;grid-template-columns:repeat(3,64px);grid-template-rows:repeat(2,56px);
+  gap:8px;justify-content:center;margin-top:16px;
+}
+#dpad button{
+  border:none;border-radius:12px;background:#fff;color:var(--accent-dark);
+  font-size:22px;cursor:pointer;box-shadow:0 2px 8px rgba(44,116,150,.15);
+}
+#dpad button:active{background:var(--bubble)}
+#dpad .up{grid-column:2;grid-row:1}
+#dpad .left{grid-column:1;grid-row:2}
+#dpad .down{grid-column:2;grid-row:2}
+#dpad .right{grid-column:3;grid-row:2}
+#overlay{
+  position:absolute;inset:0;background:rgba(233,246,252,.94);border-radius:18px;
+  display:none;flex-direction:column;align-items:center;justify-content:center;gap:14px;
+}
+#overlay.show{display:flex}
+#overlay h2{font-size:26px;font-weight:900}
+#overlay p{font-size:15px;color:#5b8296}
+footer{margin-top:26px;text-align:center;font-size:12px;color:#9dbccb}
+@media (min-width:600px){
+  h1{font-size:26px}
+  .stat .val{font-size:26px}
+  #dpad{display:none}
+}
+@media (min-width:1024px){
+  .wrap{max-width:560px;padding-top:40px}
+}
+</style>
+  <link rel="stylesheet" href="../../assets/css/game-ui.css">
+</head>
+<body class="tsg-game-page">
+<div class="wrap">
+  <header>
+    <button class="back" onclick="location.href='../../index.html'" title="返回游戏大厅">← 返回游戏大厅</button>
+    <h1>TSG<span>贪吃蛇</span></h1>
+  </header>
+  <div class="toolbar">
+    <div class="stat"><div class="label">得分</div><div class="val" id="score">0</div></div>
+    <div class="stat"><div class="label">最佳</div><div class="val" id="best">0</div></div>
+    <select class="btn" id="selSpeed" title="初始速度">
+  <option value="180">🐢 慢速</option>
+  <option value="140">🐍 中速</option>
+  <option value="100">🚀 快速</option>
+</select>
+<button class="btn ghost" id="btnWrap">🌀 穿墙：关</button>
+<button class="btn" id="restart">重新开始</button>
+  </div>
+  <div id="stage">
+    <canvas id="cv"></canvas>
+    <div id="overlay">
+      <h2 id="ovTitle">游戏结束</h2>
+      <p id="ovText"></p>
+      <button class="btn" id="ovBtn">再来一局</button>
+    </div>
+  </div>
+  <div id="dpad">
+    <button class="up" data-d="0,-1">▲</button>
+    <button class="left" data-d="-1,0">◀</button>
+    <button class="down" data-d="0,1">▼</button>
+    <button class="right" data-d="1,0">▶</button>
+  </div>
+  <div id="hint">方向键 / 滑动屏幕 / 点击方向钮控制小蛇，吃掉TSG泡泡变长加分，撞墙或撞自己就结束！</div>
+  <footer>TSG游戏 · 合集</footer>
+</div>
+<script src="../../assets/js/tsg-photos.js"></script>
+<script>
+(function(){
+"use strict";
+var N=17;                 // 17x17 格
+/* 初始速度可选 慢180/中140/快100 ms 每步；穿墙开启后撞墙从另一侧钻出 */
+var baseTick=parseInt(localStorage.getItem('tsg_snake_speed')||'140',10);
+if([180,140,100].indexOf(baseTick)<0)baseTick=140;
+var wrapWalls=localStorage.getItem('tsg_snake_wrap')==='1';
+var TICK=baseTick;
+var FOODS=['💧','🫧','🚿','🧼','💦'];
+/* 每种食物一个专属色环：5 张照片是同一个人，光看脸分不清种类 */
+var FOOD_COLORS=['#2f9be8','#36c9c6','#f5993d','#9b7ede','#f2608a'];
+
+var cv=document.getElementById('cv'), ctx=cv.getContext('2d');
+var stage=document.getElementById('stage');
+var scoreEl=document.getElementById('score'), bestEl=document.getElementById('best');
+var overlay=document.getElementById('overlay'), ovTitle=document.getElementById('ovTitle'), ovText=document.getElementById('ovText');
+
+var cell=0, dpr=1, W=0;
+var snake, dir, nextDir, food, score, timer=null, dead=false;
+var faceOffset=0, snakeFace=0;
+var best=+(localStorage.getItem('tsg_snake_best')||0);
+bestEl.textContent=best;
+
+function resize(){
+  dpr=Math.min(window.devicePixelRatio||1,2);
+  W=stage.clientWidth;
+  if(!(W>0))return;
+  cv.width=W*dpr; cv.height=W*dpr;
+  cv.style.height=W+'px';
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  cell=W/N;
+  if(!dead)draw();
+}
+window.addEventListener('resize',resize);
+
+function spawnFood(){
+  var free=[];
+  for(var r=0;r<N;r++)for(var c=0;c<N;c++){
+    if(!snake.some(function(s){return s.r===r&&s.c===c;}))free.push({r:r,c:c});
+  }
+  if(!free.length){ end(true); return; }
+  var p=free[Math.floor(Math.random()*free.length)];
+  food={r:p.r,c:p.c,k:FOODS[Math.floor(Math.random()*FOODS.length)]};
+}
+
+function init(){
+  faceOffset=Math.floor(Math.random()*(window.TSG?TSG.COUNT:14)); snakeFace=Math.floor(Math.random()*(window.TSG?TSG.COUNT:14));
+  clearInterval(timer);
+  TICK=baseTick;         // 吃食物会加速，重开必须重置回初始速度
+  snake=[{r:8,c:8},{r:8,c:7},{r:8,c:6}];
+  dir={r:0,c:1}; nextDir=dir;
+  score=0; dead=false;
+  scoreEl.textContent=0;
+  overlay.classList.remove('show');
+  spawnFood();
+  timer=setInterval(step,TICK);
+  draw();
+}
+
+function setDir(r,c){
+  if(r===-dir.r&&c===-dir.c)return; // 不能直接掉头
+  nextDir={r:r,c:c};
+}
+
+function step(){
+  dir=nextDir;
+  var head={r:snake[0].r+dir.r,c:snake[0].c+dir.c};
+  if(head.r<0||head.r>=N||head.c<0||head.c>=N){
+    if(wrapWalls){head.r=(head.r+N)%N;head.c=(head.c+N)%N;}
+    else{end(false); return;}
+  }
+  if(snake.some(function(s,i){return i<snake.length-1&&s.r===head.r&&s.c===head.c;})){
+    end(false); return;
+  }
+  snake.unshift(head);
+  if(head.r===food.r&&head.c===food.c){
+    score+=10;
+    scoreEl.textContent=score;
+    if(score>best){best=score;localStorage.setItem('tsg_snake_best',best);bestEl.textContent=best;}
+    spawnFood();
+    // 提速一点
+    clearInterval(timer);
+    TICK=Math.max(60,TICK-1.5);
+    timer=setInterval(step,TICK);
+  }else{
+    snake.pop();
+  }
+  draw();
+}
+
+function end(win){
+  clearInterval(timer); dead=true;
+  ovTitle.textContent=win?'通关啦！🎉':'游戏结束';
+  ovText.textContent='本局得分 '+score+' 分 · 最佳 '+best+' 分';
+  overlay.classList.add('show');
+}
+
+function draw(){
+  if(!snake)return;
+  ctx.clearRect(0,0,W,W);
+  ctx.fillStyle='rgba(255,255,255,.10)';
+  for(var r=0;r<N;r++)for(var c=0;c<N;c++){
+    if((r+c)%2)ctx.fillRect(c*cell,r*cell,cell,cell);
+  }
+  // 食物：画成TSG的脸（每种食物=固定照片），照片没好退回 emoji
+  if(food){
+    var fx=food.c*cell+cell/2, fy=food.r*cell+cell/2;
+    var fi=FOODS.indexOf(food.k); if(fi<0)fi=0;
+    var fd=window.TSG && TSG.drawFace(ctx,fx,fy,cell*0.44,(fi+faceOffset)%TSG.COUNT,{ring:FOOD_COLORS[fi],ringWidth:0.16});
+    if(!fd){
+      ctx.textAlign='center';ctx.textBaseline='middle';
+      ctx.font=Math.round(cell*0.72)+'px serif';
+      ctx.fillText(food.k,fx,fy+cell*0.04);
+    }
+  }
+  // 蛇身
+  for(var i=snake.length-1;i>=0;i--){
+    var s=snake[i];
+    var t=i/Math.max(snake.length-1,1);
+    ctx.beginPath();
+    ctx.arc(s.c*cell+cell/2,s.r*cell+cell/2,cell*0.42,0,Math.PI*2);
+    var g=Math.round(200-90*t), b=Math.round(240-40*t);
+    ctx.fillStyle='rgb('+Math.round(40+20*t)+','+g+','+b+')';
+    ctx.fill();
+  }
+  // 蛇头画成TSG的脸（身体保持原样，蛇形才看得出来）
+  if(window.TSG){
+    var hh=snake[0];
+    TSG.drawFace(ctx,hh.c*cell+cell/2,hh.r*cell+cell/2,cell*0.42,snakeFace,{ring:'#fff',ringWidth:0.1});
+  }
+  // 蛇眼
+  var h=snake[0];
+  ctx.fillStyle='#fff';
+  var ex=dir.c*cell*0.12, ey=dir.r*cell*0.12;
+  ctx.beginPath();ctx.arc(h.c*cell+cell/2-4+ex,h.r*cell+cell/2-3+ey,2.4,0,Math.PI*2);ctx.fill();
+  ctx.beginPath();ctx.arc(h.c*cell+cell/2+4+ex,h.r*cell+cell/2-3+ey,2.4,0,Math.PI*2);ctx.fill();
+}
+
+// 键盘
+window.addEventListener('keydown',function(e){
+  if(e.key==='ArrowUp'){setDir(-1,0);e.preventDefault();}
+  else if(e.key==='ArrowDown'){setDir(1,0);e.preventDefault();}
+  else if(e.key==='ArrowLeft'){setDir(0,-1);e.preventDefault();}
+  else if(e.key==='ArrowRight'){setDir(0,1);e.preventDefault();}
+});
+// 方向钮
+document.querySelectorAll('#dpad button').forEach(function(b){
+  b.addEventListener('click',function(){
+    var d=b.getAttribute('data-d').split(',');
+    setDir(+d[0],+d[1]);
+  });
+});
+// 滑动
+var ts=null;
+cv.addEventListener('pointerdown',function(e){ts={x:e.clientX,y:e.clientY};});
+cv.addEventListener('pointerup',function(e){
+  if(!ts)return;
+  var dx=e.clientX-ts.x, dy=e.clientY-ts.y;
+  if(Math.abs(dx)+Math.abs(dy)>20){
+    if(Math.abs(dx)>Math.abs(dy))setDir(0,dx>0?1:-1);
+    else setDir(dy>0?1:-1,0);
+  }
+  ts=null;
+});
+
+document.getElementById('restart').addEventListener('click',init);
+document.getElementById('ovBtn').addEventListener('click',init);
+var selSpeed=document.getElementById('selSpeed');
+selSpeed.value=String(baseTick);
+selSpeed.addEventListener('change',function(){
+  baseTick=parseInt(this.value,10);
+  localStorage.setItem('tsg_snake_speed',String(baseTick));
+  init(); // 速度从下一局开始生效
+});
+var btnWrap=document.getElementById('btnWrap');
+function paintWrap(){btnWrap.textContent='🌀 穿墙：'+(wrapWalls?'开':'关');}
+paintWrap();
+btnWrap.addEventListener('click',function(){
+  wrapWalls=!wrapWalls;
+  localStorage.setItem('tsg_snake_wrap',wrapWalls?'1':'0');
+  paintWrap();
+});
+
+resize();
+init();
+// 照片加载好后立即重绘（游戏有定时步进会重画，这里保证静止时也出现脸）
+if(window.TSG){ TSG.preload(function(){ if(!dead)draw(); }); }
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,605 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+  <meta name="theme-color" content="#f7efe1">
+  <title>合成TSG</title>
+  <style>:root {
+  color-scheme: light;
+  font-family: ui-rounded, "SF Pro Rounded", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  background: #f7efe1;
+  color: #2b241d;
+  --panel: rgba(255,255,255,.78);
+  --line: rgba(81,64,48,.16);
+  --accent: #e76f51;
+  --accent-dark: #9f3d2a;
+  --shadow: 0 14px 36px rgba(72,50,31,.13);
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; min-height: 100%; overflow-x: hidden; }
+body {
+  min-height: 100vh;
+  min-height: 100svh;
+  background:
+    radial-gradient(circle at 18% 8%, rgba(255,255,255,.85), transparent 34%),
+    linear-gradient(180deg, #f7efe1 0%, #eedfc9 100%);
+}
+button { font: inherit; }
+#app {
+  width: min(100%, 520px);
+  margin: 0 auto;
+  padding: max(14px, env(safe-area-inset-top)) 14px max(18px, env(safe-area-inset-bottom));
+}
+.topbar { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin: 2px 2px 12px; }
+.eyebrow { margin: 0 0 2px; font-size: 10px; letter-spacing: .18em; font-weight: 800; opacity: .48; }
+h1 { margin: 0; font-size: clamp(27px, 8vw, 38px); line-height: 1; letter-spacing: -.05em; }
+.ghost-button, .primary-button { border: 0; cursor: pointer; }
+.ghost-button { padding: 8px 11px; border-radius: 999px; color: #5c4b3c; background: rgba(255,255,255,.62); box-shadow: inset 0 0 0 1px var(--line); }
+.hud { display: grid; grid-template-columns: repeat(4, 1fr); gap: 7px; margin-bottom: 10px; }
+.hud-card { min-width: 0; height: 58px; padding: 7px 8px; border-radius: 14px; background: var(--panel); box-shadow: inset 0 0 0 1px rgba(255,255,255,.65); }
+.hud-card span { display: block; font-size: 10px; opacity: .55; margin-bottom: 2px; white-space: nowrap; }
+.hud-card strong { display: block; overflow: hidden; text-overflow: ellipsis; font-size: 18px; line-height: 1.35; font-variant-numeric: tabular-nums; }
+.next-card { position: relative; overflow: hidden; }
+.next-card img { position: absolute; width: 44px; height: 44px; object-fit: contain; right: 2px; bottom: -1px; filter: drop-shadow(0 2px 2px rgba(0,0,0,.12)); }
+.game-shell {
+  position: relative;
+  width: 100%;
+  max-width: 440px;
+  margin: 0 auto;
+  border-radius: 24px;
+  padding: 8px 8px 32px;
+  background: rgba(255,255,255,.64);
+  box-shadow: var(--shadow), inset 0 0 0 1px rgba(255,255,255,.82);
+  overflow: hidden;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+#gameCanvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 420 / 620;
+  border-radius: 18px;
+  background: #fffaf2;
+  touch-action: none;
+}
+.warning-label { position: absolute; z-index: 2; top: calc(8px + 16.9%); right: 16px; transform: translateY(-100%); padding: 2px 7px; border-radius: 999px; background: rgba(231,111,81,.13); color: var(--accent-dark); font-size: 9px; font-weight: 700; pointer-events: none; }
+.hint { position: absolute; left: 0; right: 0; bottom: 9px; text-align: center; font-size: 10px; letter-spacing: .02em; opacity: .47; pointer-events: none; }
+.modal { position: fixed; inset: 0; z-index: 10; display: grid; place-items: center; padding: 24px; background: rgba(43,36,29,.38); backdrop-filter: blur(8px); }
+.modal[hidden] { display: none; }
+.modal-card { width: min(330px, 100%); padding: 24px; border-radius: 24px; background: #fffaf2; box-shadow: 0 24px 70px rgba(42,30,21,.28); }
+.modal-card h2 { margin: 2px 0 18px; font-size: 28px; }
+.result-row { display: flex; justify-content: space-between; align-items: baseline; padding: 10px 0; border-top: 1px solid var(--line); }
+.result-row span { opacity: .6; font-size: 13px; }
+.result-row strong { font-size: 22px; font-variant-numeric: tabular-nums; }
+.primary-button { width: 100%; margin-top: 15px; padding: 13px; border-radius: 15px; color: white; background: var(--accent); font-weight: 800; box-shadow: 0 8px 20px rgba(231,111,81,.28); }
+@media (max-width: 390px) {
+  #app { padding-left: 10px; padding-right: 10px; }
+  .hud { gap: 5px; }
+  .hud-card { height: 54px; padding: 6px; border-radius: 12px; }
+  .hud-card strong { font-size: 16px; }
+  .next-card img { width: 40px; height: 40px; }
+  .game-shell { border-radius: 20px; padding-left: 6px; padding-right: 6px; }
+}
+@media (min-width: 800px) {
+  #app {
+    width: min(100%, 680px);
+    padding-top: 24px;
+    padding-left: 18px;
+    padding-right: 18px;
+  }
+  .topbar { margin-bottom: 16px; }
+  .eyebrow { font-size: 11px; }
+  h1 { font-size: 42px; }
+  .ghost-button { padding: 10px 14px; }
+  .hud { gap: 9px; margin-bottom: 13px; }
+  .hud-card { height: 66px; padding: 9px 10px; border-radius: 16px; }
+  .hud-card span { font-size: 11px; }
+  .hud-card strong { font-size: 21px; }
+  .next-card img { width: 50px; height: 50px; right: 4px; }
+  .game-shell { max-width: 560px; border-radius: 28px; padding: 10px 10px 36px; }
+  #gameCanvas { border-radius: 20px; }
+  .warning-label { top: calc(10px + 16.9%); right: 19px; font-size: 10px; }
+  .hint { bottom: 11px; font-size: 11px; }
+}
+</style>
+  <link rel="stylesheet" href="../../assets/css/game-ui.css">
+</head>
+<body class="tsg-game-page">
+  <main id="app" data-ready="false">
+    <nav class="game-nav"><a href="../../index.html" class="lobby-back">← 返回游戏大厅</a></nav>
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">SYNTHESIZE · TSG</p>
+        <h1>合成TSG</h1>
+      </div>
+      <button id="restartTopButton" class="ghost-button" type="button" aria-label="重新开始">重新开始</button>
+    </header>
+
+    <section class="hud" aria-label="游戏信息">
+      <div class="hud-card"><span>分数</span><strong id="scoreValue">0</strong></div>
+      <div class="hud-card"><span>最高分</span><strong id="bestScoreValue">0</strong></div>
+      <div class="hud-card"><span>最高等级</span><strong id="levelValue">Lv1</strong></div>
+      <div class="hud-card next-card"><span>下一个</span><img id="nextPreview" alt="下一枚 TSG"></div>
+    </section>
+
+    <section class="game-shell" aria-label="合成TSG游戏区">
+      <div class="warning-label" aria-hidden="true">警戒线</div>
+      <canvas id="gameCanvas" width="420" height="620" aria-label="游戏画布"></canvas>
+      <div class="hint">移动到想要的位置 · 点击或松手投放</div>
+    </section>
+
+    <div id="viewportProbe" data-overflow="false" hidden></div>
+
+    <div id="gameOverModal" class="modal" hidden>
+      <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="gameOverTitle">
+        <p class="eyebrow">GAME OVER</p>
+        <h2 id="gameOverTitle">TSG 堆满了</h2>
+        <div class="result-row"><span>本局分数</span><strong id="finalScore">0</strong></div>
+        <div class="result-row"><span>最高等级</span><strong id="finalLevel">Lv1</strong></div>
+        <button id="restartButton" class="primary-button" type="button">再来一局</button>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    window.__tsgErrors = [];
+    window.addEventListener('error', function (event) {
+      window.__tsgErrors.push(event.message || 'resource error');
+      var app = document.getElementById('app');
+      if (app) app.dataset.error = window.__tsgErrors.join(' | ');
+    }, true);
+    window.addEventListener('unhandledrejection', function (event) {
+      window.__tsgErrors.push(String(event.reason || 'unhandled rejection'));
+      var app = document.getElementById('app');
+      if (app) app.dataset.error = window.__tsgErrors.join(' | ');
+    });
+  </script>
+  <script>(function (root, factory) {
+  const api = factory();
+  if (typeof module !== 'undefined' && module.exports) module.exports = api;
+  if (root) root.TSGCore = api;
+})(typeof window !== 'undefined' ? window : globalThis, function () {
+  'use strict';
+
+  const LEVEL_RADII = Object.freeze([0, 18, 22, 27, 33, 40, 48, 57, 67, 78, 90, 103]);
+  const GRAVITY = 980;
+  const RESTITUTION = 0.18;
+  let nextId = 1;
+
+  function scoreForMerge(level) {
+    return 2 ** level;
+  }
+
+  function createBody(level, x, y, vx = 0, vy = 0) {
+    if (!Number.isInteger(level) || level < 1 || level > 11) throw new RangeError('level must be 1..11');
+    return {
+      id: nextId++, level, x, y, vx, vy,
+      radius: LEVEL_RADII[level],
+      released: true,
+      mergeLocked: false,
+    };
+  }
+
+  function clampBody(body, bounds) {
+    const { width, height } = bounds;
+    if (body.x - body.radius < 0) {
+      body.x = body.radius;
+      if (body.vx < 0) body.vx = -body.vx * 0.32;
+    }
+    if (body.x + body.radius > width) {
+      body.x = width - body.radius;
+      if (body.vx > 0) body.vx = -body.vx * 0.32;
+    }
+    if (body.y + body.radius > height) {
+      body.y = height - body.radius;
+      if (body.vy > 0) body.vy = -body.vy * 0.18;
+      body.vx *= 0.90;
+      if (Math.abs(body.vy) < 8) body.vy = 0;
+    }
+  }
+
+  function resolvePair(a, b) {
+    let dx = b.x - a.x;
+    let dy = b.y - a.y;
+    let distSq = dx * dx + dy * dy;
+    const minDist = a.radius + b.radius;
+    if (distSq >= minDist * minDist) return;
+    if (distSq < 1e-8) {
+      dx = 0.01;
+      dy = 0;
+      distSq = dx * dx;
+    }
+    const dist = Math.sqrt(distSq);
+    const nx = dx / dist;
+    const ny = dy / dist;
+    const overlap = minDist - dist;
+    const ma = a.radius * a.radius;
+    const mb = b.radius * b.radius;
+    const total = ma + mb;
+    a.x -= nx * overlap * (mb / total);
+    a.y -= ny * overlap * (mb / total);
+    b.x += nx * overlap * (ma / total);
+    b.y += ny * overlap * (ma / total);
+
+    const rvx = b.vx - a.vx;
+    const rvy = b.vy - a.vy;
+    const velAlongNormal = rvx * nx + rvy * ny;
+    if (velAlongNormal >= 0) return;
+    const invA = 1 / ma;
+    const invB = 1 / mb;
+    const impulse = -(1 + RESTITUTION) * velAlongNormal / (invA + invB);
+    const ix = impulse * nx;
+    const iy = impulse * ny;
+    a.vx -= ix * invA;
+    a.vy -= iy * invA;
+    b.vx += ix * invB;
+    b.vy += iy * invB;
+  }
+
+  function stepPhysics(state, dt, bounds) {
+    const bodies = state.bodies || [];
+    const safeDt = Math.max(0, Math.min(dt, 1 / 30));
+    for (const body of bodies) {
+      body.mergeLocked = false;
+      body.vy += GRAVITY * safeDt;
+      body.x += body.vx * safeDt;
+      body.y += body.vy * safeDt;
+      body.vx *= 0.999;
+      clampBody(body, bounds);
+    }
+    for (let iter = 0; iter < 3; iter++) {
+      for (let i = 0; i < bodies.length; i++) {
+        for (let j = i + 1; j < bodies.length; j++) resolvePair(bodies[i], bodies[j]);
+      }
+      for (const body of bodies) clampBody(body, bounds);
+    }
+    return state;
+  }
+
+  function collectMergePairs(bodies) {
+    const pairs = [];
+    const used = new Set();
+    for (let i = 0; i < bodies.length; i++) {
+      const a = bodies[i];
+      if (a.level >= 11 || a.mergeLocked || used.has(a.id)) continue;
+      for (let j = i + 1; j < bodies.length; j++) {
+        const b = bodies[j];
+        if (b.level !== a.level || b.level >= 11 || b.mergeLocked || used.has(b.id)) continue;
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        const touch = a.radius + b.radius + 1.5;
+        if (dx * dx + dy * dy <= touch * touch) {
+          a.mergeLocked = true;
+          b.mergeLocked = true;
+          used.add(a.id);
+          used.add(b.id);
+          pairs.push([a, b]);
+          break;
+        }
+      }
+    }
+    return pairs;
+  }
+
+  function applyMerges(state, pairs) {
+    if (!pairs || pairs.length === 0) return state;
+    const removed = new Set();
+    const spawned = [];
+    for (const [a, b] of pairs) {
+      if (removed.has(a.id) || removed.has(b.id) || a.level !== b.level || a.level >= 11) continue;
+      removed.add(a.id);
+      removed.add(b.id);
+      const level = a.level + 1;
+      const body = createBody(
+        level,
+        (a.x + b.x) / 2,
+        (a.y + b.y) / 2,
+        (a.vx + b.vx) / 2,
+        (a.vy + b.vy) / 2 - 72
+      );
+      spawned.push(body);
+      state.score = (state.score || 0) + scoreForMerge(a.level);
+      state.highestLevel = Math.max(state.highestLevel || 1, level);
+    }
+    state.bodies = (state.bodies || []).filter(body => !removed.has(body.id)).concat(spawned);
+    return state;
+  }
+
+  function updateOverflowTimer(state, dt, warningY) {
+    const safeDt = Math.max(0, dt);
+    let maxOverflowTime = 0;
+    for (const body of (state.bodies || [])) {
+      const violating = body.released !== false && body.y - body.radius < warningY;
+      body.overflowTime = violating ? (body.overflowTime || 0) + safeDt : 0;
+      maxOverflowTime = Math.max(maxOverflowTime, body.overflowTime);
+      if (body.overflowTime >= 1.8) state.gameOver = true;
+    }
+    state.overflowTime = maxOverflowTime;
+    return state.overflowTime;
+  }
+
+  function resetOverflowTimer(state) {
+    state.overflowTime = 0;
+    for (const body of (state.bodies || [])) body.overflowTime = 0;
+  }
+
+  return {
+    LEVEL_RADII,
+    scoreForMerge,
+    createBody,
+    stepPhysics,
+    collectMergePairs,
+    applyMerges,
+    updateOverflowTimer,
+    resetOverflowTimer,
+  };
+});
+</script>
+  <script>window.__TSG_ASSET_DATA={"1": "../../assets/photos/tsg-01.png", "2": "../../assets/photos/tsg-02.png", "3": "../../assets/photos/tsg-03.png", "4": "../../assets/photos/tsg-04.png", "5": "../../assets/photos/tsg-05.png", "6": "../../assets/photos/tsg-06.png", "7": "../../assets/photos/tsg-07.png", "8": "../../assets/photos/tsg-08.png", "9": "../../assets/photos/tsg-09.png", "10": "../../assets/photos/tsg-10.png", "11": "../../assets/photos/tsg-11.png"};</script><script>(function () {
+  'use strict';
+  const Core = window.TSGCore;
+  const app = document.getElementById('app');
+  const canvas = document.getElementById('gameCanvas');
+  const ctx = canvas.getContext('2d');
+  const scoreValue = document.getElementById('scoreValue');
+  const bestScoreValue = document.getElementById('bestScoreValue');
+  const levelValue = document.getElementById('levelValue');
+  const nextPreview = document.getElementById('nextPreview');
+  const modal = document.getElementById('gameOverModal');
+  const finalScore = document.getElementById('finalScore');
+  const finalLevel = document.getElementById('finalLevel');
+  const restartButton = document.getElementById('restartButton');
+  const restartTopButton = document.getElementById('restartTopButton');
+  const viewportProbe = document.getElementById('viewportProbe');
+
+  const WIDTH = 420;
+  const HEIGHT = 620;
+  const WARNING_Y = 105;
+  const STEP = 1 / 60;
+  const SPAWN_Y = 50;
+  const sprites = new Array(12);
+  let state;
+  let current = null;
+  let nextLevel = 1;
+  let activePointerId = null;
+  let cooldownUntil = 0;
+  let accumulator = 0;
+  let lastTime = 0;
+  let bestScore = loadBestScore();
+
+  function reportError(message) {
+    app.dataset.error = String(message || 'unknown error');
+  }
+
+  function loadBestScore() {
+    try { return Number(localStorage.getItem('tsg_hecheng_best_score') || 0) || 0; }
+    catch (_) { return 0; }
+  }
+
+  function saveBestScore() {
+    try { localStorage.setItem('tsg_hecheng_best_score', String(bestScore)); }
+    catch (_) { /* file:// storage can be unavailable; the game still works */ }
+  }
+
+  function randomSpawnLevel() {
+    const r = Math.random();
+    if (r < 0.42) return 1;
+    if (r < 0.70) return 2;
+    if (r < 0.86) return 3;
+    if (r < 0.95) return 4;
+    return 5;
+  }
+
+  function spritePath(level) {
+    if (window.__TSG_ASSET_DATA && window.__TSG_ASSET_DATA[level]) return window.__TSG_ASSET_DATA[level];
+    return `assets/tsg-lv${String(level).padStart(2, '0')}.png`;
+  }
+
+  function preloadSprites() {
+    return Promise.all(Array.from({ length: 11 }, (_, i) => i + 1).map(level => new Promise((resolve, reject) => {
+      const image = new Image();
+      image.onload = () => { sprites[level] = image; resolve(); };
+      image.onerror = () => reject(new Error(`加载失败: ${spritePath(level)}`));
+      image.src = spritePath(level);
+    })));
+  }
+
+  function updateViewportProbe() {
+    const overflow = document.documentElement.scrollWidth > window.innerWidth + 1;
+    viewportProbe.dataset.overflow = overflow ? 'true' : 'false';
+  }
+
+  function resetGame() {
+    state = { bodies: [], score: 0, highestLevel: 1, overflowTime: 0, gameOver: false };
+    activePointerId = null;
+    accumulator = 0;
+    lastTime = performance.now();
+    cooldownUntil = 0;
+    nextLevel = randomSpawnLevel();
+    spawnControlled(true);
+    modal.hidden = true;
+    syncHud();
+  }
+
+  function spawnControlled(force) {
+    if (state.gameOver || current || (!force && performance.now() < cooldownUntil)) return;
+    const level = nextLevel;
+    nextLevel = randomSpawnLevel();
+    current = { level, x: WIDTH / 2, y: SPAWN_Y };
+    nextPreview.src = spritePath(nextLevel);
+  }
+
+  function dropCurrent() {
+    if (!current || state.gameOver) return;
+    const body = Core.createBody(current.level, current.x, current.y, 0, 0);
+    body.released = true;
+    state.bodies.push(body);
+    state.highestLevel = Math.max(state.highestLevel, current.level);
+    current = null;
+    cooldownUntil = performance.now() + 330;
+  }
+
+  function pointerX(event) {
+    const rect = canvas.getBoundingClientRect();
+    return (event.clientX - rect.left) * (WIDTH / rect.width);
+  }
+
+  function moveCurrentTo(x) {
+    if (!current) return;
+    const r = Core.LEVEL_RADII[current.level];
+    current.x = Math.max(r, Math.min(WIDTH - r, x));
+  }
+
+  canvas.addEventListener('pointerdown', event => {
+    if (event.button !== 0 && event.pointerType === 'mouse') return;
+    event.preventDefault();
+    activePointerId = event.pointerId;
+    try { canvas.setPointerCapture(event.pointerId); } catch (_) {}
+    moveCurrentTo(pointerX(event));
+  });
+  canvas.addEventListener('pointermove', event => {
+    if (event.pointerType === 'mouse' || event.pointerId === activePointerId) {
+      event.preventDefault();
+      moveCurrentTo(pointerX(event));
+    }
+  });
+  canvas.addEventListener('pointerup', event => {
+    if (event.pointerId !== activePointerId && event.pointerType !== 'mouse') return;
+    event.preventDefault();
+    moveCurrentTo(pointerX(event));
+    dropCurrent();
+    activePointerId = null;
+  });
+  canvas.addEventListener('pointercancel', event => {
+    if (event.pointerId === activePointerId) activePointerId = null;
+  });
+  canvas.addEventListener('contextmenu', event => event.preventDefault());
+
+  restartButton.addEventListener('click', resetGame);
+  restartTopButton.addEventListener('click', resetGame);
+  window.addEventListener('resize', updateViewportProbe, { passive: true });
+
+  function syncHud() {
+    scoreValue.textContent = String(state.score);
+    levelValue.textContent = `Lv${state.highestLevel}`;
+    if (state.score > bestScore) {
+      bestScore = state.score;
+      saveBestScore();
+    }
+    bestScoreValue.textContent = String(bestScore);
+  }
+
+  function finishGame() {
+    if (!state.gameOver) state.gameOver = true;
+    syncHud();
+    finalScore.textContent = String(state.score);
+    finalLevel.textContent = `Lv${state.highestLevel}`;
+    modal.hidden = false;
+  }
+
+  function drawSticker(level, x, y, radius, alpha) {
+    const image = sprites[level];
+    if (!image) return;
+    const size = Math.min(300, radius * 2.9);
+    const sourceWidth = image.naturalWidth || image.width || 1;
+    const sourceHeight = image.naturalHeight || image.height || 1;
+    const scale = size / Math.max(sourceWidth, sourceHeight);
+    const drawWidth = sourceWidth * scale;
+    const drawHeight = sourceHeight * scale;
+    ctx.save();
+    ctx.globalAlpha = alpha == null ? 1 : alpha;
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(image, x - drawWidth / 2, y - drawHeight / 2, drawWidth, drawHeight);
+    ctx.restore();
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, WIDTH, HEIGHT);
+    const bg = ctx.createLinearGradient(0, 0, 0, HEIGHT);
+    bg.addColorStop(0, '#fffaf3');
+    bg.addColorStop(1, '#f8e8d1');
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, WIDTH, HEIGHT);
+
+    ctx.save();
+    ctx.strokeStyle = 'rgba(231,111,81,.52)';
+    ctx.setLineDash([8, 7]);
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(0, WARNING_Y);
+    ctx.lineTo(WIDTH, WARNING_Y);
+    ctx.stroke();
+    ctx.restore();
+
+    ctx.strokeStyle = 'rgba(74,55,40,.13)';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(1, 1, WIDTH - 2, HEIGHT - 2);
+
+    const ordered = state.bodies.slice().sort((a, b) => a.level - b.level);
+    for (const body of ordered) drawSticker(body.level, body.x, body.y, body.radius, 1);
+
+    if (current && !state.gameOver) {
+      const r = Core.LEVEL_RADII[current.level];
+      ctx.save();
+      ctx.strokeStyle = 'rgba(90,70,50,.18)';
+      ctx.setLineDash([4, 8]);
+      ctx.beginPath();
+      ctx.moveTo(current.x, current.y + r);
+      ctx.lineTo(current.x, Math.min(HEIGHT, current.y + 120));
+      ctx.stroke();
+      ctx.restore();
+      drawSticker(current.level, current.x, current.y, r, 0.94);
+    }
+
+    if (state.overflowTime > 0 && !state.gameOver) {
+      const progress = Math.min(1, state.overflowTime / 1.8);
+      ctx.fillStyle = `rgba(231,111,81,${0.08 + progress * 0.12})`;
+      ctx.fillRect(0, 0, WIDTH, WARNING_Y);
+    }
+  }
+
+  function simulate(dt) {
+    Core.stepPhysics(state, dt, { width: WIDTH, height: HEIGHT });
+    const pairs = Core.collectMergePairs(state.bodies);
+    if (pairs.length) Core.applyMerges(state, pairs);
+    Core.updateOverflowTimer(state, dt, WARNING_Y);
+    if (state.gameOver) finishGame();
+    syncHud();
+  }
+
+  function frame(now) {
+    const elapsed = Math.min(0.08, Math.max(0, (now - lastTime) / 1000));
+    lastTime = now;
+    if (!state.gameOver) {
+      accumulator += elapsed;
+      while (accumulator >= STEP) {
+        simulate(STEP);
+        accumulator -= STEP;
+        if (state.gameOver) break;
+      }
+      spawnControlled(false);
+    }
+    draw();
+    requestAnimationFrame(frame);
+  }
+
+  if (!Core) {
+    reportError('TSGCore 未加载');
+    return;
+  }
+
+  preloadSprites().then(() => {
+    resetGame();
+    updateViewportProbe();
+    app.dataset.ready = 'true';
+    if (window.__tsgErrors && window.__tsgErrors.length) reportError(window.__tsgErrors.join(' | '));
+    requestAnimationFrame(frame);
+  }).catch(error => reportError(error.message || error));
+})();
+</script>
+</body>
+</html>
