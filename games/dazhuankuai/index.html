@@ -94,7 +94,7 @@ footer{margin-top:26px;text-align:center;font-size:12px;color:#9dbccb}
       <button class="btn" id="ovBtn">开始游戏</button>
     </div>
   </div>
-  <div id="hint">左右滑动屏幕（电脑移动鼠标）控制弹板，球碰到弹板左右位置会改变反弹角度。共 3 条命。</div>
+  <div id="hint">左右滑动屏幕（电脑可用 ←→ 或 A/D）控制弹板，↑/W/空格发球。球碰到弹板左右位置会改变反弹角度。共 3 条命。</div>
   <footer>TSG游戏 · 合集</footer>
 </div>
 <script src="../../assets/js/tsg-photos.js"></script>
@@ -118,6 +118,7 @@ var scoreEl=document.getElementById('score'), bestEl=document.getElementById('be
 var overlay=document.getElementById('overlay'), ovTitle=document.getElementById('ovTitle'), ovText=document.getElementById('ovText');
 
 var W=0,H=0,dpr=1;
+var faceOffset=0;
 var bricks=[], ball, paddle, score=0, lives=DIFFS[diffKey].lives, level=1, running=false, stuck=true, rafId=null;
 var best=+(localStorage.getItem('tsg_breakout_best')||0);
 bestEl.textContent=best;
@@ -198,27 +199,23 @@ function loop(){
   if(!running){draw();return;}
   if(!stuck){
     ball.x+=ball.vx; ball.y+=ball.vy;
-    // 墙壁
     if(ball.x<ball.r){ball.x=ball.r;ball.vx=-ball.vx;}
     if(ball.x>W-ball.r){ball.x=W-ball.r;ball.vx=-ball.vx;}
     if(ball.y<ball.r){ball.y=ball.r;ball.vy=-ball.vy;}
-    // 掉落
     if(ball.y>H+20){
       lives--;
       if(lives<=0){end(false);return;}
       resetBall();
     }
-    // 弹板
     if(ball.vy>0&&ball.y+ball.r>=paddle.y&&ball.y+ball.r<=paddle.y+paddle.h+8&&
        ball.x>=paddle.x-ball.r&&ball.x<=paddle.x+paddle.w+ball.r){
-      var hit=(ball.x-(paddle.x+paddle.w/2))/(paddle.w/2); // -1..1
+      var hit=(ball.x-(paddle.x+paddle.w/2))/(paddle.w/2);
       var sp=Math.sqrt(ball.vx*ball.vx+ball.vy*ball.vy);
-      var a=-Math.PI/2+hit*1.0; // 最大偏 57°
+      var a=-Math.PI/2+hit*1.0;
       ball.vx=Math.cos(a)*sp;
       ball.vy=Math.sin(a)*sp;
       ball.y=paddle.y-ball.r-0.1;
     }
-    // 砖块
     for(var i=0;i<bricks.length;i++){
       var b=bricks[i];
       if(!b.alive)continue;
@@ -226,14 +223,12 @@ function loop(){
         b.alive=false;
         score+=10;
         scoreEl.textContent=score;
-        // 简单反弹：比较重叠方向
         var ox=Math.min(ball.x-(b.x-ball.r),(b.x+b.w+ball.r)-ball.x);
         var oy=Math.min(ball.y-(b.y-ball.r),(b.y+b.h+ball.r)-ball.y);
         if(ox<oy)ball.vx=-ball.vx; else ball.vy=-ball.vy;
         break;
       }
     }
-    // 过关
     if(bricks.every(function(b){return !b.alive;})){
       level++;
       levelEl.textContent=level;
@@ -249,9 +244,8 @@ function loop(){
 }
 
 function draw(){
-  if(!paddle||!ball)return;   // 页面未布局完成（宽为 0）时还没有可画的对象
+  if(!paddle||!ball)return;
   ctx.clearRect(0,0,W,H);
-  // 砖块
   bricks.forEach(function(b){
     if(!b.alive)return;
     ctx.fillStyle=COLORS[b.k];
@@ -265,14 +259,11 @@ function draw(){
     ctx.fill();
     ctx.fillStyle='rgba(255,255,255,.3)';
     ctx.fillRect(b.x+3,b.y+2,b.w-6,4);
-    // 脸贴砖块内部，四周留原色边框（弹板/小球/❤️生命保持原样）
     if(window.TSG){
       var inset=3, fw=b.w-inset*2, fh=b.h-inset*2;
-      // 脸区小于 14px 就不贴脸：糊成色块反而看不清砖块边界
       if(fw>=14&&fh>=14) TSG.drawFaceRound(ctx,b.x+inset,b.y+inset,fw,fh,(b.k+faceOffset)%TSG.COUNT,4);
     }
   });
-  // 弹板
   ctx.fillStyle='#238ab3';
   ctx.beginPath();
   var p=paddle, rad=p.h/2;
@@ -282,20 +273,17 @@ function draw(){
   ctx.arcTo(p.x,p.y+p.h,p.x,p.y,rad);
   ctx.arcTo(p.x,p.y,p.x+p.w,p.y,rad);
   ctx.fill();
-  // 球
   ctx.beginPath();
   ctx.arc(ball.x,ball.y,ball.r,0,Math.PI*2);
   ctx.fillStyle='#fff';
   ctx.fill();
   ctx.strokeStyle='#36b3e3';ctx.lineWidth=2;ctx.stroke();
-  // 命
   ctx.fillStyle='rgba(255,255,255,.85)';
   ctx.font='13px sans-serif';
   ctx.textAlign='left';
   ctx.fillText('❤️'.repeat(lives),10,H-8);
 }
 
-// 输入
 function setPaddle(clientX){
   if(!paddle)return;
   var rect=cv.getBoundingClientRect();
@@ -309,31 +297,32 @@ cv.addEventListener('pointerdown',function(e){
   if(running&&stuck)launch();
 });
 window.addEventListener('keydown',function(e){
-  if(!paddle)return;   // 页面还没布局完成（宽为 0）时弹板不存在
-  if(e.key==='ArrowLeft'){paddle.x=Math.max(paddle.x-24,0);}
-  else if(e.key==='ArrowRight'){paddle.x=Math.min(paddle.x+24,W-paddle.w);}
-  else if(e.key===' '&&running&&stuck){launch();e.preventDefault();}
+  if(!paddle)return;
+  if(e.target&&/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName))return;
+  var k=String(e.key||'').toLowerCase();
+  if(k==='arrowleft'||k==='a'){paddle.x=Math.max(paddle.x-24,0);e.preventDefault();}
+  else if(k==='arrowright'||k==='d'){paddle.x=Math.min(paddle.x+24,W-paddle.w);e.preventDefault();}
+  else if((k==='arrowup'||k==='w'||k===' ')&&running&&stuck){launch();e.preventDefault();}
 });
 document.getElementById('restart').addEventListener('click',init);
 document.getElementById('ovBtn').addEventListener('click',init);
 var selDiff=document.getElementById('selDiff');
 selDiff.value=diffKey;
 function refreshHint(){
-  document.getElementById('hint').textContent='左右滑动屏幕（电脑移动鼠标）控制弹板，球碰到弹板左右位置会改变反弹角度。共 '+DIFFS[diffKey].lives+' 条命。';
+  document.getElementById('hint').textContent='左右滑动屏幕（电脑可用 ←→ 或 A/D）控制弹板，↑/W/空格发球。球碰到弹板左右位置会改变反弹角度。共 '+DIFFS[diffKey].lives+' 条命。';
 }
 refreshHint();
 selDiff.addEventListener('change',function(){
   diffKey=this.value;
   localStorage.setItem('tsg_breakout_diff',diffKey);
   refreshHint();
-  init(); // 生命/弹板宽度/球速即时生效，重开一局
+  init();
 });
 
 resize();
 ball={x:0,y:0,r:7};
 resetBall();
 if(!rafId)rafId=requestAnimationFrame(loop);
-// 主循环每帧都会重画，照片加载好后自然出现
 if(window.TSG){ TSG.preload(function(){}); }
 })();
 </script>
