@@ -168,9 +168,60 @@ h1 { margin: 0; font-size: clamp(27px, 8vw, 38px); line-height: 1; letter-spacin
   const GRAVITY = 980;
   const RESTITUTION = 0.18;
   let nextId = 1;
+  let collisionProfiles = Object.create(null);
+  const fallbackProfiles = Object.create(null);
 
   function scoreForMerge(level) {
     return 2 ** level;
+  }
+
+  function makeFallbackProfile(level) {
+    if (fallbackProfiles[level]) return fallbackProfiles[level];
+    const r = LEVEL_RADII[level];
+    const rects = [];
+    const bands = 10;
+    let area = 0;
+    for (let i = 0; i < bands; i++) {
+      const top = -r + (2 * r * i) / bands;
+      const bottom = -r + (2 * r * (i + 1)) / bands;
+      const mid = (top + bottom) / 2;
+      const half = Math.sqrt(Math.max(0, r * r - mid * mid));
+      const rect = { left: -half, right: half, top, bottom };
+      rects.push(rect);
+      area += (rect.right - rect.left) * (rect.bottom - rect.top);
+    }
+    const profile = { rects, bounds: { left: -r, right: r, top: -r, bottom: r }, area };
+    fallbackProfiles[level] = profile;
+    return profile;
+  }
+
+  function normalizeProfile(profile) {
+    if (!profile || !Array.isArray(profile.rects) || !profile.rects.length) return null;
+    const rects = profile.rects
+      .map(r => ({ left: Number(r.left), right: Number(r.right), top: Number(r.top), bottom: Number(r.bottom) }))
+      .filter(r => Number.isFinite(r.left) && Number.isFinite(r.right) && Number.isFinite(r.top) && Number.isFinite(r.bottom) && r.right > r.left && r.bottom > r.top);
+    if (!rects.length) return null;
+    const bounds = {
+      left: Math.min(...rects.map(r => r.left)),
+      right: Math.max(...rects.map(r => r.right)),
+      top: Math.min(...rects.map(r => r.top)),
+      bottom: Math.max(...rects.map(r => r.bottom)),
+    };
+    const area = rects.reduce((sum, r) => sum + (r.right - r.left) * (r.bottom - r.top), 0);
+    return { rects, bounds, area: Math.max(1, Number(profile.area) || area) };
+  }
+
+  function setCollisionProfiles(profiles) {
+    collisionProfiles = Object.create(null);
+    if (!profiles) return;
+    for (let level = 1; level <= 11; level++) {
+      const normalized = normalizeProfile(profiles[level]);
+      if (normalized) collisionProfiles[level] = normalized;
+    }
+  }
+
+  function getCollisionProfile(level) {
+    return collisionProfiles[level] || makeFallbackProfile(level);
   }
 
   function createBody(level, x, y, vx = 0, vy = 0) {
@@ -183,46 +234,105 @@ h1 { margin: 0; font-size: clamp(27px, 8vw, 38px); line-height: 1; letter-spacin
     };
   }
 
+  function bodyBounds(body) {
+    const b = getCollisionProfile(body.level).bounds;
+    return {
+      left: body.x + b.left,
+      right: body.x + b.right,
+      top: body.y + b.top,
+      bottom: body.y + b.bottom,
+    };
+  }
+
+  function bodyMass(body) {
+    return Math.max(1, getCollisionProfile(body.level).area);
+  }
+
   function clampBody(body, bounds) {
     const { width, height } = bounds;
-    if (body.x - body.radius < 0) {
-      body.x = body.radius;
+    const local = getCollisionProfile(body.level).bounds;
+    if (body.x + local.left < 0) {
+      body.x = -local.left;
       if (body.vx < 0) body.vx = -body.vx * 0.32;
     }
-    if (body.x + body.radius > width) {
-      body.x = width - body.radius;
+    if (body.x + local.right > width) {
+      body.x = width - local.right;
       if (body.vx > 0) body.vx = -body.vx * 0.32;
     }
-    if (body.y + body.radius > height) {
-      body.y = height - body.radius;
+    if (body.y + local.bottom > height) {
+      body.y = height - local.bottom;
       if (body.vy > 0) body.vy = -body.vy * 0.18;
       body.vx *= 0.90;
       if (Math.abs(body.vy) < 8) body.vy = 0;
     }
   }
 
-  function resolvePair(a, b) {
-    let dx = b.x - a.x;
-    let dy = b.y - a.y;
-    let distSq = dx * dx + dy * dy;
-    const minDist = a.radius + b.radius;
-    if (distSq >= minDist * minDist) return;
-    if (distSq < 1e-8) {
-      dx = 0.01;
-      dy = 0;
-      distSq = dx * dx;
+  function broadPhaseOverlap(a, b, padding) {
+    const pa = getCollisionProfile(a.level).bounds;
+    const pb = getCollisionProfile(b.level).bounds;
+    const pad = Math.max(0, padding || 0) / 2;
+    return !(
+      a.x + pa.right + pad < b.x + pb.left - pad ||
+      b.x + pb.right + pad < a.x + pa.left - pad ||
+      a.y + pa.bottom + pad < b.y + pb.top - pad ||
+      b.y + pb.bottom + pad < a.y + pa.top - pad
+    );
+  }
+
+  function findProfileContact(a, b, padding = 0) {
+    if (!broadPhaseOverlap(a, b, padding)) return null;
+    const ra = getCollisionProfile(a.level).rects;
+    const rb = getCollisionProfile(b.level).rects;
+    const pad = Math.max(0, padding) / 2;
+    let best = null;
+    for (let i = 0; i < ra.length; i++) {
+      const ar = ra[i];
+      const al = a.x + ar.left - pad;
+      const arr = a.x + ar.right + pad;
+      const at = a.y + ar.top - pad;
+      const ab = a.y + ar.bottom + pad;
+      for (let j = 0; j < rb.length; j++) {
+        const br = rb[j];
+        const bl = b.x + br.left - pad;
+        const brr = b.x + br.right + pad;
+        const bt = b.y + br.top - pad;
+        const bb = b.y + br.bottom + pad;
+        const overlapX = Math.min(arr, brr) - Math.max(al, bl);
+        const overlapY = Math.min(ab, bb) - Math.max(at, bt);
+        if (overlapX <= 0 || overlapY <= 0) continue;
+
+        const acx = (al + arr) / 2;
+        const bcx = (bl + brr) / 2;
+        const acy = (at + ab) / 2;
+        const bcy = (bt + bb) / 2;
+        let candidate;
+        if (overlapX < overlapY) {
+          candidate = { nx: bcx >= acx ? 1 : -1, ny: 0, overlap: overlapX };
+        } else {
+          candidate = { nx: 0, ny: bcy >= acy ? 1 : -1, overlap: overlapY };
+        }
+        if (!best || candidate.overlap < best.overlap) best = candidate;
+      }
     }
-    const dist = Math.sqrt(distSq);
-    const nx = dx / dist;
-    const ny = dy / dist;
-    const overlap = minDist - dist;
-    const ma = a.radius * a.radius;
-    const mb = b.radius * b.radius;
+    return best;
+  }
+
+  function profilesTouch(a, b, tolerance = 0) {
+    return !!findProfileContact(a, b, tolerance);
+  }
+
+  function resolvePair(a, b) {
+    const contact = findProfileContact(a, b, 0);
+    if (!contact) return;
+    const { nx, ny, overlap } = contact;
+    const ma = bodyMass(a);
+    const mb = bodyMass(b);
     const total = ma + mb;
-    a.x -= nx * overlap * (mb / total);
-    a.y -= ny * overlap * (mb / total);
-    b.x += nx * overlap * (ma / total);
-    b.y += ny * overlap * (ma / total);
+    const correction = overlap + 0.02;
+    a.x -= nx * correction * (mb / total);
+    a.y -= ny * correction * (mb / total);
+    b.x += nx * correction * (ma / total);
+    b.y += ny * correction * (ma / total);
 
     const rvx = b.vx - a.vx;
     const rvy = b.vy - a.vy;
@@ -250,7 +360,7 @@ h1 { margin: 0; font-size: clamp(27px, 8vw, 38px); line-height: 1; letter-spacin
       body.vx *= 0.999;
       clampBody(body, bounds);
     }
-    for (let iter = 0; iter < 3; iter++) {
+    for (let iter = 0; iter < 4; iter++) {
       for (let i = 0; i < bodies.length; i++) {
         for (let j = i + 1; j < bodies.length; j++) resolvePair(bodies[i], bodies[j]);
       }
@@ -268,10 +378,7 @@ h1 { margin: 0; font-size: clamp(27px, 8vw, 38px); line-height: 1; letter-spacin
       for (let j = i + 1; j < bodies.length; j++) {
         const b = bodies[j];
         if (b.level !== a.level || b.level >= 11 || b.mergeLocked || used.has(b.id)) continue;
-        const dx = b.x - a.x;
-        const dy = b.y - a.y;
-        const touch = a.radius + b.radius + 1.5;
-        if (dx * dx + dy * dy <= touch * touch) {
+        if (profilesTouch(a, b, 1.5)) {
           a.mergeLocked = true;
           b.mergeLocked = true;
           used.add(a.id);
@@ -312,7 +419,8 @@ h1 { margin: 0; font-size: clamp(27px, 8vw, 38px); line-height: 1; letter-spacin
     const safeDt = Math.max(0, dt);
     let maxOverflowTime = 0;
     for (const body of (state.bodies || [])) {
-      const violating = body.released !== false && body.y - body.radius < warningY;
+      const top = body.y + getCollisionProfile(body.level).bounds.top;
+      const violating = body.released !== false && top < warningY;
       body.overflowTime = violating ? (body.overflowTime || 0) + safeDt : 0;
       maxOverflowTime = Math.max(maxOverflowTime, body.overflowTime);
       if (body.overflowTime >= 1.8) state.gameOver = true;
@@ -329,6 +437,9 @@ h1 { margin: 0; font-size: clamp(27px, 8vw, 38px); line-height: 1; letter-spacin
   return {
     LEVEL_RADII,
     scoreForMerge,
+    setCollisionProfiles,
+    getCollisionProfile,
+    bodyBounds,
     createBody,
     stepPhysics,
     collectMergePairs,
@@ -358,6 +469,7 @@ h1 { margin: 0; font-size: clamp(27px, 8vw, 38px); line-height: 1; letter-spacin
   const WIDTH = 420;
   const HEIGHT = 620;
   const WARNING_Y = 105;
+  const SHOW_HITBOX = new URLSearchParams(location.search).get('hitbox') === '1';
   const STEP = 1 / 60;
   const SPAWN_Y = 50;
   const sprites = new Array(12);
@@ -407,6 +519,107 @@ h1 { margin: 0; font-size: clamp(27px, 8vw, 38px); line-height: 1; letter-spacin
     })));
   }
 
+  function buildCollisionProfile(image, level) {
+    const sourceWidth = image.naturalWidth || image.width || 1;
+    const sourceHeight = image.naturalHeight || image.height || 1;
+    const analysisMax = 256;
+    const shrink = Math.min(1, analysisMax / Math.max(sourceWidth, sourceHeight));
+    const width = Math.max(1, Math.round(sourceWidth * shrink));
+    const height = Math.max(1, Math.round(sourceHeight * shrink));
+    const offscreen = document.createElement('canvas');
+    offscreen.width = width;
+    offscreen.height = height;
+    const octx = offscreen.getContext('2d', { willReadFrequently: true });
+    octx.clearRect(0, 0, width, height);
+    octx.drawImage(image, 0, 0, width, height);
+    const pixels = octx.getImageData(0, 0, width, height).data;
+    const alphaThreshold = 64;
+    let minX = width, maxX = -1, minY = height, maxY = -1;
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        if (pixels[(y * width + x) * 4 + 3] < alphaThreshold) continue;
+        if (x < minX) minX = x;
+        if (x > maxX) maxX = x;
+        if (y < minY) minY = y;
+        if (y > maxY) maxY = y;
+      }
+    }
+    if (maxX < minX || maxY < minY) return null;
+
+    const bands = 10;
+    const visibleHeight = maxY - minY + 1;
+    const visualSize = Math.min(300, Core.LEVEL_RADII[level] * 2.9);
+    const worldScale = visualSize / Math.max(width, height);
+    const rects = [];
+    for (let band = 0; band < bands; band++) {
+      const y0 = Math.floor(minY + visibleHeight * band / bands);
+      const y1 = Math.max(y0 + 1, Math.floor(minY + visibleHeight * (band + 1) / bands));
+      const occupied = new Uint8Array(width);
+      for (let y = y0; y < Math.min(height, y1); y++) {
+        for (let x = minX; x <= maxX; x++) {
+          if (pixels[(y * width + x) * 4 + 3] >= alphaThreshold) occupied[x] = 1;
+        }
+      }
+
+      let runStart = -1;
+      let lastSolid = -1;
+      let gap = 0;
+      const flushRun = () => {
+        if (runStart < 0 || lastSolid < runStart) return;
+        const left = (runStart - width / 2) * worldScale;
+        const right = (lastSolid + 1 - width / 2) * worldScale;
+        const top = (y0 - height / 2) * worldScale;
+        const bottom = (Math.min(height, y1) - height / 2) * worldScale;
+        if (right - left >= 1.1 && bottom - top >= 0.8) rects.push({ left, right, top, bottom });
+      };
+
+      for (let x = minX; x <= maxX + 1; x++) {
+        const solid = x <= maxX && occupied[x];
+        if (solid) {
+          if (runStart < 0) runStart = x;
+          lastSolid = x;
+          gap = 0;
+        } else if (runStart >= 0) {
+          gap++;
+          if (gap > 2 || x > maxX) {
+            flushRun();
+            runStart = -1;
+            lastSolid = -1;
+            gap = 0;
+          }
+        }
+      }
+    }
+    if (!rects.length) return null;
+    const bounds = {
+      left: Math.min(...rects.map(r => r.left)),
+      right: Math.max(...rects.map(r => r.right)),
+      top: Math.min(...rects.map(r => r.top)),
+      bottom: Math.max(...rects.map(r => r.bottom)),
+    };
+    const area = rects.reduce((sum, r) => sum + (r.right - r.left) * (r.bottom - r.top), 0);
+    return { rects, bounds, area };
+  }
+
+  function installCollisionProfiles() {
+    const profiles = {};
+    let totalRects = 0;
+    for (let level = 1; level <= 11; level++) {
+      try {
+        const profile = buildCollisionProfile(sprites[level], level);
+        if (profile) {
+          profiles[level] = profile;
+          totalRects += profile.rects.length;
+        }
+      } catch (_) {
+        // If canvas pixel access is unavailable, Core falls back to its old circle-like profile.
+      }
+    }
+    Core.setCollisionProfiles(profiles);
+    app.dataset.collision = Object.keys(profiles).length === 11 ? 'outline' : 'outline-fallback';
+    app.dataset.hitboxRects = String(totalRects);
+  }
+
   function updateViewportProbe() {
     const overflow = document.documentElement.scrollWidth > window.innerWidth + 1;
     viewportProbe.dataset.overflow = overflow ? 'true' : 'false';
@@ -449,8 +662,8 @@ h1 { margin: 0; font-size: clamp(27px, 8vw, 38px); line-height: 1; letter-spacin
 
   function moveCurrentTo(x) {
     if (!current) return;
-    const r = Core.LEVEL_RADII[current.level];
-    current.x = Math.max(r, Math.min(WIDTH - r, x));
+    const bounds = Core.getCollisionProfile(current.level).bounds;
+    current.x = Math.max(-bounds.left, Math.min(WIDTH - bounds.right, x));
   }
 
   canvas.addEventListener('pointerdown', event => {
@@ -517,6 +730,18 @@ h1 { margin: 0; font-size: clamp(27px, 8vw, 38px); line-height: 1; letter-spacin
     ctx.restore();
   }
 
+  function drawHitbox(level, x, y) {
+    if (!SHOW_HITBOX) return;
+    const profile = Core.getCollisionProfile(level);
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255, 40, 70, .78)';
+    ctx.lineWidth = 1;
+    for (const rect of profile.rects) {
+      ctx.strokeRect(x + rect.left, y + rect.top, rect.right - rect.left, rect.bottom - rect.top);
+    }
+    ctx.restore();
+  }
+
   function draw() {
     ctx.clearRect(0, 0, WIDTH, HEIGHT);
     const bg = ctx.createLinearGradient(0, 0, 0, HEIGHT);
@@ -540,7 +765,10 @@ h1 { margin: 0; font-size: clamp(27px, 8vw, 38px); line-height: 1; letter-spacin
     ctx.strokeRect(1, 1, WIDTH - 2, HEIGHT - 2);
 
     const ordered = state.bodies.slice().sort((a, b) => a.level - b.level);
-    for (const body of ordered) drawSticker(body.level, body.x, body.y, body.radius, 1);
+    for (const body of ordered) {
+      drawSticker(body.level, body.x, body.y, body.radius, 1);
+      drawHitbox(body.level, body.x, body.y);
+    }
 
     if (current && !state.gameOver) {
       const r = Core.LEVEL_RADII[current.level];
@@ -548,11 +776,12 @@ h1 { margin: 0; font-size: clamp(27px, 8vw, 38px); line-height: 1; letter-spacin
       ctx.strokeStyle = 'rgba(90,70,50,.18)';
       ctx.setLineDash([4, 8]);
       ctx.beginPath();
-      ctx.moveTo(current.x, current.y + r);
+      ctx.moveTo(current.x, current.y + Core.getCollisionProfile(current.level).bounds.bottom);
       ctx.lineTo(current.x, Math.min(HEIGHT, current.y + 120));
       ctx.stroke();
       ctx.restore();
       drawSticker(current.level, current.x, current.y, r, 0.94);
+      drawHitbox(current.level, current.x, current.y);
     }
 
     if (state.overflowTime > 0 && !state.gameOver) {
@@ -593,6 +822,7 @@ h1 { margin: 0; font-size: clamp(27px, 8vw, 38px); line-height: 1; letter-spacin
   }
 
   preloadSprites().then(() => {
+    installCollisionProfiles();
     resetGame();
     updateViewportProbe();
     app.dataset.ready = 'true';
