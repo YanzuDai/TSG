@@ -49,7 +49,8 @@
 
 /* The source games used a 38px circular button while putting the full return label in it.
    Give the navigation label enough room and keep it visually compact instead of clipping. */
-.tsg-game-page .wrap > header .back {
+.tsg-game-page .wrap > header .back,
+.tsg-game-page .wrap > header .back-btn {
   width: auto !important;
   height: auto !important;
   min-height: 40px;
@@ -76,6 +77,15 @@
   font-size: clamp(20px, 5.7vw, 28px);
   line-height: 1.16;
   letter-spacing: .02em;
+}
+
+/* Memory uses .back-btn so it does not collide with the card face class .back.
+   Keep the short game title on one line while letting it use the remaining header width. */
+.tsg-game-page .wrap > header .back-btn + h1 {
+  flex: 1 1 auto;
+  overflow-wrap: normal;
+  word-break: keep-all;
+  white-space: nowrap;
 }
 
 .tsg-game-page .toolbar,
@@ -217,7 +227,8 @@
     margin-bottom: 16px !important;
   }
 
-  .tsg-game-page .wrap > header .back {
+  .tsg-game-page .wrap > header .back,
+  .tsg-game-page .wrap > header .back-btn {
     min-height: 38px;
     padding: 0 11px !important;
     font-size: 12px !important;
@@ -301,6 +312,7 @@
 
 @media (min-width: 900px) {
   .tsg-game-page .wrap > header .back,
+  .tsg-game-page .wrap > header .back-btn,
   .tsg-game-page .game-nav .lobby-back,
   .tsg-game-page .back-link {
     font-size: 14px;
