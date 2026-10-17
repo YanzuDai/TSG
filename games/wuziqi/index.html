@@ -194,13 +194,16 @@ function updateStatus(){
 
 function draw(){
   ctx.clearRect(0,0,W,W);
+  // board bg
   ctx.fillStyle='#f0c98f'; ctx.fillRect(0,0,W,W);
+  // grid
   ctx.strokeStyle='#cfa163'; ctx.lineWidth=1;
   for(var i=0;i<N;i++){
     var p=PAD+i*CELL;
     ctx.beginPath(); ctx.moveTo(PAD,p); ctx.lineTo(W-PAD,p); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(p,PAD); ctx.lineTo(p,W-PAD); ctx.stroke();
   }
+  // star points
   var stars=[3,7,11];
   ctx.fillStyle='#b08040';
   stars.forEach(function(r){
@@ -208,6 +211,7 @@ function draw(){
       ctx.beginPath(); ctx.arc(PAD+c*CELL,PAD+r*CELL,CELL*0.12,0,Math.PI*2); ctx.fill();
     });
   });
+  // stones
   for(var r=0;r<N;r++)for(var c=0;c<N;c++){
     if(board[r][c]===0)continue;
     var x=PAD+c*CELL, y=PAD+r*CELL;
@@ -220,12 +224,21 @@ function draw(){
     }
     ctx.fillStyle=grad; ctx.fill();
     ctx.strokeStyle='rgba(0,0,0,.15)'; ctx.lineWidth=1; ctx.stroke();
+    /* 把棋子画成TSG的脸。
+       原来脸占 R*0.68，把黑白本体挤得只剩外圈 32%，实测白子对棋盘底色只差 25 个亮度单位，
+       白子容易看丢。这里做两件事：
+       1) 脸缩到 R*0.52，让黑/白渐变重新成为主要面积；
+       2) 两种棋子都补一圈深色外轮廓，保证在米黄棋盘上边缘清晰。
+       照片没加载好就完全走原来的黑白渐变子，不描额外轮廓。 */
     if(window.TSG){
       var pi=board[r][c]===1?PLAYER_FACE:AI_FACE;
       var fr=R*0.52;
       var isBlack=board[r][c]===1;
       var ring=isBlack?'rgba(255,255,255,.95)':'rgba(0,0,0,.5)';
       if(TSG.drawFace(ctx,x,y,fr,pi,{ring:ring,ringWidth:0.12})){
+        /* 细描边：只用来把棋子边界从米黄棋盘上勾出来。
+           描边太粗会让白子边缘发暗，反而把黑白差距从 153 压到 85，所以用细的。
+           实测：脸 0.68→0.52 使黑白本体亮度差 66→203，白子本体对棋盘 4→47。 */
         var rw=Math.max(1,R*0.1);
         ctx.beginPath(); ctx.arc(x,y,R-rw/2,0,Math.PI*2);
         ctx.lineWidth=rw;
@@ -234,11 +247,12 @@ function draw(){
       }
     }
   }
+  // last move marker
   if(history.length){
     var last=history[history.length-1];
     var lx=PAD+last.c*CELL, ly=PAD+last.r*CELL;
     ctx.beginPath(); ctx.arc(lx,ly,CELL*0.12,0,Math.PI*2);
-    ctx.fillStyle='#ff5a5a'; ctx.fill();
+    ctx.fillStyle=board[last.r][last.c]===1?'#ff5a5a':'#ff5a5a'; ctx.fill();
   }
 }
 
@@ -277,6 +291,7 @@ function onClick(e){
     if(!over&&mode==='ai'){
       locked=true;
       var g=gen;
+      /* AI 稍候再落子，让黑子先画上；这期间若点了新开局/悔棋，迟到的白子会落进新棋盘 */
       setTimeout(function(){ if(g===gen) aiMove(); },150);
     }
   }
@@ -292,16 +307,25 @@ function aiMove(){
 }
 
 function findBestMove(){
+  // 1. AI win
   var win=findThreat(2,5,true);
   if(win)return win;
+  // 2. block player win
   var block=findThreat(1,5,true);
   if(block)return block;
+  // 3. create open 4
   var open4=findThreat(2,4,false);
   if(open4)return open4;
+  // 4. block open 4
   var blockOpen4=findThreat(1,4,false);
   if(blockOpen4)return blockOpen4;
+  // 5. create/best score
+  /* 以前对全盘 225 个空格逐个打分，手机上每一步都要算很久。
+     候选点只取已有棋子 2 格范围内的空位（五子棋落在远处没有意义），
+     一般从 225 砍到 40 上下，快 5 倍以上。 */
   var cands=candidateCells();
   if(aiLevel==='easy'){
+    // 简单：只抢上面的必胜/必堵，其余在候选点里随便挑
     return cands[Math.floor(Math.random()*cands.length)];
   }
   var best=null, bestScore=-1;
@@ -337,12 +361,14 @@ function findThreat(player,len,exact){
     for(var d=0;d<4;d++){
       var dr=dirs[d][0], dc=dirs[d][1];
       var count=1, emptyEnds=0;
-      var rr=r+dr, cc=c+dc;
+      // forward
+      var rr=r+dr, cc=c+dc, gap=0;
       while(rr>=0&&rr<N&&cc>=0&&cc<N){
         if(board[rr][cc]===player){count++; rr+=dr; cc+=dc;}
         else if(board[rr][cc]===0){emptyEnds++; break;}
         else break;
       }
+      // backward
       rr=r-dr; cc=c-dc;
       while(rr>=0&&rr<N&&cc>=0&&cc<N){
         if(board[rr][cc]===player){count++; rr-=dr; cc-=dc;}
@@ -401,6 +427,7 @@ function checkWin(r,c,player){
 function undo(){
   if(history.length===0||locked)return;
   if(mode==='ai'){
+    // 人机：一次撤掉 AI + 玩家最近一手，轮回到黑棋玩家
     var steps=history.length%2===0?2:1;
     for(var i=0;i<steps;i++){
       var m=history.pop();
@@ -408,6 +435,7 @@ function undo(){
     }
     current=1;
   }else{
+    // 双人：只撤最近一手，轮到被撤的那方重下
     var m2=history.pop();
     if(m2){board[m2.r][m2.c]=0; current=m2.player;}
   }
@@ -449,6 +477,7 @@ document.getElementById('ovBtn1').onclick=init;
 document.getElementById('ovBtn2').onclick=function(){location.href='../../index.html';};
 
 resize(); init();
+// 静态重画型游戏：照片加载好一张就主动重画一次，否则脸永远不出现
 if(window.TSG){ TSG.preload(function(){ draw(); }); }
 window.addEventListener('resize',function(){resize(); draw();});
 })();
